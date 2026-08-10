@@ -16,7 +16,8 @@ const FraudPredictionDashboard = () => {
   const [stats, setStats] = useState(null);
 
   const API_URL =
-    (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) || '';
+        (typeof process !== 'undefined' && process.env && process.env.REACT_APP_API_URL) || 'https://cyre-fraud-prediction.onrender.com';
+
 
   // Fetch statistics on mount
   useEffect(() => {
