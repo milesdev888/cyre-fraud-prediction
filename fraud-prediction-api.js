@@ -32,20 +32,20 @@ app.get('/health', (req, res) => {
 // Analyze single transaction for fraud risk
 app.post('/api/analyze', (req, res) => {
   try {
-    const {
-      transactionId,
-      userId,
-      amount,
-      merchant,
-      location,
-      deviceId,
-      previousTransactions = [],
-      timestamp = new Date().toISOString()
-    } = req.body;
+        const b = req.body || {};
+    const amount = Number(b.amount);
+    const merchant = b.merchant || b.merchantCategory || 'unknown';
+    const location = b.location || 'unknown';
+    const deviceId = b.deviceId || b.deviceType || 'unknown';
+    const userId = b.userId || 'demo-user';
+    const transactionId = b.transactionId || uuidv4();
+    const timestamp = b.timestamp || new Date().toISOString();
+    const previousTransactions = b.previousTransactions || [];
 
-    if (!transactionId || !userId || !amount || !merchant) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!amount || Number.isNaN(amount)) {
+      return res.status(400).json({ error: 'Amount is required' });
     }
+
 
     // Calculate fraud score (0-100)
     const fraudScore = calculateFraudScore({
