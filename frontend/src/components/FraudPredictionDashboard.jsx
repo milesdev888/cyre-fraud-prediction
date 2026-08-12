@@ -13,6 +13,7 @@ import {
 const API_URL =
   process.env.REACT_APP_API_URL || 'https://cyre-fraud-prediction.onrender.com';
 
+
 const T = {
   ink: '#06070a',
   panel: '#0d1017',
