@@ -66,6 +66,7 @@ function mountGuardianMcp(app) {
       tools: TOOL_NAMES,
       transport: 'streamable-http',
       x402: process.env.X402_ENABLED === 'true',
+      guardianKey: Boolean(process.env.GUARDIAN_KEY || process.env.X402_INTERNAL_KEY),
       note: 'Payment is enforced at the HTTP layer on /mcp (not MCP _meta). See docs/mcp.md.'
     });
   });
