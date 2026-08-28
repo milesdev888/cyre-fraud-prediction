@@ -29,7 +29,11 @@
     "uuid": "^9.0.0",
     "@solana/web3.js": "^1.87.6",
     "axios": "^1.6.0",
-    "@coinbase/cdp-sdk": "^1.38.0"
+    "@coinbase/cdp-sdk": "^1.38.0",
+    "@x402/core": "^2.24.0",
+    "@x402/evm": "^2.24.0",
+    "@x402/extensions": "^2.24.0",
+    "@x402/svm": "^2.24.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1",

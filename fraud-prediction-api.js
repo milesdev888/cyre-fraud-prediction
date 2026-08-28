@@ -6,6 +6,7 @@ const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 require('dotenv').config();
 require('./create-wallet')().catch(() => {});
+require('./x402-payer')().catch(() => {});
 
 const app = express();
 
