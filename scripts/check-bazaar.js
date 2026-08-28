@@ -11,7 +11,7 @@ const KEYWORD = process.env.KEYWORD || 'cyre';
 const RESOURCE = 'https://cyre.dev/api/address';
 
 const CDP = `https://api.cdp.coinbase.com/platform/v2/x402/discovery/resources?payTo=${PAYTO}`;
-const AM = `https://api.agentic.market/search?q=${encodeURIComponent(KEYWORD)}`;
+const AM = `https://api.agentic.market/v1/services/search?q=${encodeURIComponent(KEYWORD)}`;
 
 const norm = (s) => String(s || '').toLowerCase();
 const hit = (r) =>
