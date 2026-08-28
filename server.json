@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.milesdev888/guardian",
+  "title": "CYRE Guardian",
+  "description": "Solana address risk grades and token scans for AI agents. Pay-per-call via x402 (USDC on Base).",
+  "version": "1.0.0",
+  "websiteUrl": "https://cyre.dev",
+  "repository": {
+    "url": "https://github.com/milesdev888/cyre-fraud-prediction",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://cyre-fraud-prediction.onrender.com/mcp"
+    }
+  ]
+}
