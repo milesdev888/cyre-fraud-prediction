@@ -1,6 +1,7 @@
 // scripts/fire-settles.js — one-shot mainnet settles for new Guardian bazaar routes.
 // Called from x402-payer when X402_FIRE_SETTLES=1. Reuses CdpX402Client + @x402/core/http.
 // Remove the env flag after a successful run so restarts do not re-pay.
+// Optional: X402_FIRE_ROUTES=/api/bazaar,/api/caution,... — fire only those paths (listed order).
 
 const TAG = '[fire-settles]';
 const BASE = (process.env.X402_FIRE_BASE || 'https://cyre.dev').replace(/\/$/, '');
@@ -66,10 +67,11 @@ module.exports = async function fireSettles(client) {
     policyToken: null,
     intentToken: null,
     cronToken: null,
-    passportToken: null
+    passportToken: null,
+    lockboxToken: null
   };
 
-  // Order matches bazaar settle brief — tokens chain into later routes.
+  // Full catalog — tokens chain into later routes. Filter via X402_FIRE_ROUTES when set.
   const routes = [
     {
       route: '/api/policy',
@@ -236,67 +238,147 @@ module.exports = async function fireSettles(client) {
       before: async () => {
         ctx.passportToken = await freePassport();
       }
+    },
+    // Magnet suite (PR #116)
+    {
+      route: '/api/bazaar',
+      url: () =>
+        BASE +
+        '/api/bazaar?' +
+        qs({
+          resourceUrl: 'https://cyre.dev/api/address',
+          payTo: TREASURY,
+          amount: '10000',
+          facilitator: FACILITATOR,
+          network: 'eip155:8453'
+        })
+    },
+    {
+      route: '/api/caution',
+      url: () =>
+        BASE +
+        '/api/caution?' +
+        qs({
+          payTo: TREASURY,
+          amount: '10000',
+          resourceUrl: 'https://cyre.dev',
+          chain: 'base'
+        })
+    },
+    {
+      route: '/api/lockbox',
+      url: () =>
+        BASE +
+        '/api/lockbox?' +
+        qs({
+          actor: SOL,
+          intentHash: INTENT_HASH,
+          action: 'pay',
+          payTo: TREASURY,
+          amountAtomic: '10000',
+          resourceUrl: 'https://cyre.dev',
+          network: 'eip155:8453'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.lockboxToken = j.token;
+      }
+    },
+    {
+      route: '/api/lockbox/match',
+      url: () =>
+        BASE +
+        '/api/lockbox/match?' +
+        qs({
+          token: ctx.lockboxToken || 'missing',
+          intentHash: INTENT_HASH,
+          payTo: TREASURY,
+          amountAtomic: '10000',
+          resourceUrl: 'https://cyre.dev',
+          network: 'eip155:8453'
+        })
     }
   ];
+
+  const selectedRaw = String(process.env.X402_FIRE_ROUTES || '').trim();
+  let toRun = routes;
+  if (selectedRaw) {
+    const want = selectedRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    toRun = [];
+    for (const path of want) {
+      const step = routes.find((r) => r.route === path);
+      if (!step) {
+        console.log(TAG, 'SKIPPED', path, 'err', 'unknown_route');
+        // counted in loop below via synthetic skip — push a stub
+        toRun.push({ route: path, unknown: true });
+      } else {
+        toRun.push(step);
+      }
+    }
+    console.log(TAG, 'X402_FIRE_ROUTES filter:', want.join(', '));
+  }
 
   let settled = 0;
   let skipped = 0;
 
-  for (let i = 0; i < routes.length; i++) {
-    const step = routes[i];
+  for (let i = 0; i < toRun.length; i++) {
+    const step = toRun[i];
     try {
-      if (step.before) await step.before();
-      const url = step.url();
-
-      const r1 = await fetch(url, { method: 'GET', headers: { accept: 'application/json' } });
-      if (r1.status !== 402) {
-        const t = (await r1.text()).slice(0, 150);
-        console.log(TAG, 'SKIPPED', step.route, r1.status, t);
+      if (step.unknown) {
         skipped++;
       } else {
-        const prHeader = r1.headers.get('payment-required');
-        const paymentRequired = prHeader ? decodePaymentRequiredHeader(prHeader) : await r1.json();
-        const payload = await client.createPaymentPayload(paymentRequired);
-        const sig = encodePaymentSignatureHeader(payload);
-        const r2 = await fetch(url, {
-          method: 'GET',
-          headers: {
-            accept: 'application/json',
-            'PAYMENT-SIGNATURE': sig,
-            'X-PAYMENT': sig
-          }
-        });
-        const text = await r2.text();
-        let bodyJson = null;
-        try {
-          bodyJson = JSON.parse(text);
-        } catch (e) {
-          /* ignore */
-        }
+        if (step.before) await step.before();
+        const url = step.url();
 
-        if (r2.status === 200) {
-          const pr = r2.headers.get('payment-response') || r2.headers.get('x-payment-response');
-          let settledMeta = null;
-          if (pr) {
-            try {
-              settledMeta = decodePaymentResponseHeader(pr);
-            } catch (e) {
-              settledMeta = decodeB64Json(pr);
-            }
-          }
-          const tx =
-            (settledMeta &&
-              (settledMeta.transaction ||
-                settledMeta.txHash ||
-                settledMeta.hash ||
-                (settledMeta.payer && settledMeta.payer))) ||
-            JSON.stringify(settledMeta || { paymentResponse: !!pr });
-          console.log(TAG, 'SETTLED', step.route, r2.status, tx);
-          settled++;
-          if (step.keep && bodyJson) step.keep(bodyJson);
-        } else {
-          console.log(TAG, 'SKIPPED', step.route, r2.status, text.slice(0, 150));
+        const r1 = await fetch(url, { method: 'GET', headers: { accept: 'application/json' } });
+        if (r1.status !== 402) {
+          const t = (await r1.text()).slice(0, 150);
+          console.log(TAG, 'SKIPPED', step.route, r1.status, t);
           skipped++;
+        } else {
+          const prHeader = r1.headers.get('payment-required');
+          const paymentRequired = prHeader ? decodePaymentRequiredHeader(prHeader) : await r1.json();
+          const payload = await client.createPaymentPayload(paymentRequired);
+          const sig = encodePaymentSignatureHeader(payload);
+          const r2 = await fetch(url, {
+            method: 'GET',
+            headers: {
+              accept: 'application/json',
+              'PAYMENT-SIGNATURE': sig,
+              'X-PAYMENT': sig
+            }
+          });
+          const text = await r2.text();
+          let bodyJson = null;
+          try {
+            bodyJson = JSON.parse(text);
+          } catch (e) {
+            /* ignore */
+          }
+
+          if (r2.status === 200) {
+            const pr = r2.headers.get('payment-response') || r2.headers.get('x-payment-response');
+            let settledMeta = null;
+            if (pr) {
+              try {
+                settledMeta = decodePaymentResponseHeader(pr);
+              } catch (e) {
+                settledMeta = decodeB64Json(pr);
+              }
+            }
+            const tx =
+              (settledMeta &&
+                (settledMeta.transaction ||
+                  settledMeta.txHash ||
+                  settledMeta.hash ||
+                  (settledMeta.payer && settledMeta.payer))) ||
+              JSON.stringify(settledMeta || { paymentResponse: !!pr });
+            console.log(TAG, 'SETTLED', step.route, r2.status, tx);
+            settled++;
+            if (step.keep && bodyJson) step.keep(bodyJson);
+          } else {
+            console.log(TAG, 'SKIPPED', step.route, r2.status, text.slice(0, 150));
+            skipped++;
+          }
         }
       }
     } catch (err) {
@@ -305,7 +387,7 @@ module.exports = async function fireSettles(client) {
       skipped++;
     }
 
-    if (i < routes.length - 1) await sleep(1500);
+    if (i < toRun.length - 1) await sleep(1500);
   }
 
   console.log(
