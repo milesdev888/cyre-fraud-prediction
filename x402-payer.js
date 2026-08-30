@@ -41,6 +41,12 @@ module.exports = async function runGuardianPayer() {
   const target = (process.env.X402_PAY_ONCE || '').trim();
   if (!target) return evmAddress;
 
+  // Optional relay: when X402_PAY_VIA is set (e.g. https://cyre.dev/api/relay),
+  // route the HTTP through it — for hosts that refuse Render egress IPs.
+  const via = (process.env.X402_PAY_VIA || '').trim();
+  const wire = via ? via + '?to=' + encodeURIComponent(target) : target;
+  if (via) console.log(TAG, 'relaying via', via);
+
   // Optional method/body for POST endpoints (e.g. x402station).
   const method = (process.env.X402_PAY_METHOD || 'GET').trim().toUpperCase() === 'POST' ? 'POST' : 'GET';
   const rawBody = (process.env.X402_PAY_BODY || '').trim();
@@ -60,7 +66,7 @@ module.exports = async function runGuardianPayer() {
     // Step 1: unpaid request → expect 402 with PAYMENT-REQUIRED header (v2) or JSON body.
     let r1;
     for (let attempt = 1; ; attempt++) {
-      try { r1 = await fetch(target, reqInit()); break; }
+      try { r1 = await fetch(wire, reqInit()); break; }
       catch (e) {
         const cause = (e.cause && (e.cause.code || e.cause.message)) || e.message;
         console.error(TAG, `step 1 attempt ${attempt} failed:`, cause);
@@ -84,7 +90,7 @@ module.exports = async function runGuardianPayer() {
 
     // Step 3: paid request (some servers read X-PAYMENT, v2 reads PAYMENT-SIGNATURE — send both).
     const sig = encodePaymentSignatureHeader(payload);
-    const r2 = await fetch(target, reqInit({ 'PAYMENT-SIGNATURE': sig, 'X-PAYMENT': sig }));
+    const r2 = await fetch(wire, reqInit({ 'PAYMENT-SIGNATURE': sig, 'X-PAYMENT': sig }));
     const text = await r2.text();
     console.log(TAG, 'step 3 status', r2.status);
     const pr = r2.headers.get('payment-response') || r2.headers.get('x-payment-response');
