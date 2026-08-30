@@ -111,3 +111,49 @@ describe('x402 MCP HTTP gate', () => {
     expect(dead.body.error).toBe('offer_mismatch');
   });
 });
+
+describe('VerifyMCP owners.json', () => {
+  const express = require('express');
+  const http = require('http');
+  const { mountGuardianMcp, OWNERS_JSON } = require('../mcp/mount');
+
+  let server;
+  let base;
+
+  beforeAll(async () => {
+    const app = express();
+    mountGuardianMcp(app);
+    server = http.createServer(app);
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    base = `http://127.0.0.1:${port}`;
+  });
+
+  afterAll(async () => {
+    if (server) await new Promise((resolve) => server.close(resolve));
+  });
+
+  test('OWNERS_JSON matches VerifyMCP email schema', () => {
+    expect(Array.isArray(OWNERS_JSON.owners)).toBe(true);
+    expect(OWNERS_JSON.owners.length).toBeGreaterThan(0);
+    for (const addr of OWNERS_JSON.owners) {
+      expect(addr).toMatch(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    }
+  });
+
+  test('GET /mcp/.well-known/owners.json is free 200 JSON', async () => {
+    const res = await fetch(`${base}/mcp/.well-known/owners.json`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toMatch(/application\/json/);
+    expect(res.headers.get('cache-control')).toMatch(/max-age=3600/);
+    const body = await res.json();
+    expect(body.owners).toEqual(OWNERS_JSON.owners);
+  });
+
+  test('GET /.well-known/owners.json is free 200 JSON', async () => {
+    const res = await fetch(`${base}/.well-known/owners.json`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.owners).toEqual(OWNERS_JSON.owners);
+  });
+});

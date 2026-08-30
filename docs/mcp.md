@@ -28,6 +28,17 @@ Tools call `https://cyre.dev` with header `x-guardian-key: $GUARDIAN_KEY` so the
 
 `GET /mcp/health` is **free** (no x402).
 
+## VerifyMCP owners.json (free)
+
+Public ownership claim for [VerifyMCP](https://verifymcp.io/docs/build/owners-json). Served **before** the x402 gate (no payment, no `GUARDIAN_KEY`):
+
+| Path | Claims |
+|------|--------|
+| `GET /mcp/.well-known/owners.json` | This MCP endpoint only |
+| `GET /.well-known/owners.json` | Every MCP on this host |
+
+Body is `owners.json` at repo root (`owners` = VerifyMCP account emails). `Cache-Control: public, max-age=3600`.
+
 ## Env
 
 | Var | Required | Notes |
