@@ -10,6 +10,7 @@
     "dev": "nodemon fraud-prediction-api.js & nodemon solana-payment-processor.js",
     "test": "jest --testPathPattern=test/",
     "check-bazaar": "node scripts/check-bazaar.js",
+    "b402-keygen": "node scripts/b402-keygen.js",
     "deploy": "git push heroku main"
   },
   "keywords": [
