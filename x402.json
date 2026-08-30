@@ -1,0 +1,30 @@
+{
+  "x402Version": 2,
+  "kind": "resource-server",
+  "name": "CYRE Guardian",
+  "description": "x402-gated MCP server for Solana address grading and token mint scans. Patterns, not verdicts.",
+  "resources": [
+    {
+      "url": "https://cyre-fraud-prediction.onrender.com/mcp",
+      "method": "POST",
+      "description": "CYRE Guardian MCP (Streamable HTTP). Tools: grade_address, scan_token, batch_grade. HTTP 402 before MCP traffic."
+    }
+  ],
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:8453",
+      "amount": "5000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "payTo": "0x9Ff25C4acf1DcDDf15fD2702C127A285f1dFa712",
+      "extra": { "name": "USD Coin", "version": "2" }
+    }
+  ],
+  "networks": ["eip155:8453"],
+  "assets": ["USDC"],
+  "payTo": "0x9Ff25C4acf1DcDDf15fD2702C127A285f1dFa712",
+  "docs": "https://cyre.dev/SKILL.md",
+  "marketplace": "https://agentic.market",
+  "contact": "support@cyre.dev",
+  "updated": "2026-08-30T00:00:00Z"
+}

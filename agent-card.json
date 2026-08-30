@@ -1,0 +1,55 @@
+{
+  "name": "CYRE Guardian",
+  "description": "On-chain risk intelligence for Solana via MCP. Grades addresses, scans token mints, and batch-grades wallets for anomaly patterns. Patterns, not verdicts. Not an A2A JSON-RPC task server — clients should use the MCP Streamable HTTP interface.",
+  "version": "1.0.0",
+  "documentationUrl": "https://cyre.dev/SKILL.md",
+  "iconUrl": "https://cyre.dev/favicon.png",
+  "provider": {
+    "organization": "CYRE",
+    "url": "https://cyre.dev"
+  },
+  "supportedInterfaces": [
+    {
+      "url": "https://cyre-fraud-prediction.onrender.com/mcp",
+      "protocolBinding": "https://modelcontextprotocol.io/specification/2024-11-05",
+      "protocolVersion": "2024-11-05"
+    }
+  ],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "extendedAgentCard": false,
+    "extensions": [
+      {
+        "uri": "https://x402.org",
+        "description": "HTTP-layer x402 payment is required on POST /mcp before Streamable HTTP MCP traffic.",
+        "required": true,
+        "params": {
+          "discovery": "https://cyre-fraud-prediction.onrender.com/.well-known/x402"
+        }
+      }
+    ]
+  },
+  "defaultInputModes": ["application/json"],
+  "defaultOutputModes": ["application/json"],
+  "skills": [
+    {
+      "id": "grade_address",
+      "name": "grade_address",
+      "description": "Risk grade a Solana address from on-chain history (patterns with points and reasons). Patterns, not verdicts.",
+      "tags": ["solana", "risk", "fraud", "address", "mcp"]
+    },
+    {
+      "id": "scan_token",
+      "name": "scan_token",
+      "description": "Scan a Solana token mint for mint/freeze authority status, supply, and holder concentration. Patterns, not verdicts.",
+      "tags": ["solana", "token", "mint", "risk", "mcp"]
+    },
+    {
+      "id": "batch_grade",
+      "name": "batch_grade",
+      "description": "Grade up to 25 Solana addresses in one call. Patterns, not verdicts.",
+      "tags": ["solana", "risk", "batch", "mcp"]
+    }
+  ]
+}
