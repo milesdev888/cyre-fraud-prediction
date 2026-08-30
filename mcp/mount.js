@@ -1,10 +1,24 @@
 // mcp/mount.js — wire /mcp + x402 HTTP gate onto an Express app
+const fs = require('fs');
+const path = require('path');
 const { createX402Gate, applyX402Result } = require('../lib/x402-gate');
 const { handleMcpRequest } = require('./server');
 const { VERSION, TOOL_NAMES } = require('./tools');
 
 const MCP_DESCRIPTION =
   'CYRE Guardian MCP — grade Solana addresses and scan token mints via tools grade_address, scan_token, batch_grade. Patterns, not verdicts.';
+
+// VerifyMCP owners.json — free, public, never behind x402 / GUARDIAN_KEY.
+// Spec: https://verifymcp.io/docs/build/owners-json (owners = email addresses).
+const OWNERS_JSON = JSON.parse(
+  fs.readFileSync(path.join(__dirname, '..', 'owners.json'), 'utf8')
+);
+
+function sendOwnersJson(_req, res) {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=3600');
+  res.status(200).json(OWNERS_JSON);
+}
 
 const MCP_DISCOVERY = {
   bazaar: {
@@ -58,6 +72,11 @@ function mountGuardianMcp(app) {
     isFree: () => false // /mcp always paid when X402_ENABLED (health is separate)
   });
 
+  // VerifyMCP ownership claim — BEFORE x402 gate; free GET, no auth.
+  // Path-level claims only /mcp; host-level claims every server on this host.
+  app.get('/mcp/.well-known/owners.json', sendOwnersJson);
+  app.get('/.well-known/owners.json', sendOwnersJson);
+
   app.get('/mcp/health', (_req, res) => {
     res.json({
       ok: true,
@@ -88,4 +107,4 @@ function mountGuardianMcp(app) {
   });
 }
 
-module.exports = { mountGuardianMcp, MCP_DISCOVERY, VERSION, TOOL_NAMES };
+module.exports = { mountGuardianMcp, MCP_DISCOVERY, VERSION, TOOL_NAMES, OWNERS_JSON, sendOwnersJson };
