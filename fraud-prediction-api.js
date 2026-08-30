@@ -12,6 +12,11 @@ const app = express();
 
 // Middleware
 app.use(cors());
+
+// B402 relay needs raw body bytes for Tesla RSA signing — mount BEFORE express.json()
+// See docs/B402-RELAY.md
+require('./lib/b402-relay').mount(app);
+
 app.use(express.json({ limit: '2mb' }));
 
 // CYRE Guardian MCP (Streamable HTTP) — see docs/mcp.md
