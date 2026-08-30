@@ -157,3 +157,69 @@ describe('VerifyMCP owners.json', () => {
     expect(body.owners).toEqual(OWNERS_JSON.owners);
   });
 });
+
+describe('A2A Agent Card + x402 well-known', () => {
+  const express = require('express');
+  const http = require('http');
+  const {
+    mountGuardianMcp,
+    AGENT_CARD_JSON,
+    X402_MANIFEST_JSON,
+    TOOL_NAMES
+  } = require('../mcp/mount');
+
+  let server;
+  let base;
+
+  beforeAll(async () => {
+    const app = express();
+    mountGuardianMcp(app);
+    server = http.createServer(app);
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const { port } = server.address();
+    base = `http://127.0.0.1:${port}`;
+  });
+
+  afterAll(async () => {
+    if (server) await new Promise((resolve) => server.close(resolve));
+  });
+
+  test('Agent Card skills match MCP tool names', () => {
+    expect(AGENT_CARD_JSON.supportedInterfaces.length).toBeGreaterThan(0);
+    expect(AGENT_CARD_JSON.skills.map((s) => s.id).sort()).toEqual([...TOOL_NAMES].sort());
+  });
+
+  test('GET agent-card.json and agent.json are identical 200', async () => {
+    const a = await fetch(`${base}/.well-known/agent-card.json`);
+    const b = await fetch(`${base}/.well-known/agent.json`);
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(a.headers.get('access-control-allow-origin')).toBe('*');
+    const ja = await a.json();
+    const jb = await b.json();
+    expect(ja).toEqual(jb);
+    expect(ja.name).toBe('CYRE Guardian');
+    expect(ja.skills.map((s) => s.id).sort()).toEqual([...TOOL_NAMES].sort());
+  });
+
+  test('GET/HEAD /.well-known/x402 is free resource-server manifest', async () => {
+    const get = await fetch(`${base}/.well-known/x402`);
+    expect(get.status).toBe(200);
+    const body = await get.json();
+    expect(body.kind).toBe('resource-server');
+    expect(body.x402Version).toBe(2);
+    expect(body.payTo).toBe(X402_MANIFEST_JSON.payTo);
+    expect(body.resources[0].url).toContain('/mcp');
+
+    const head = await fetch(`${base}/.well-known/x402`, { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(head.headers.get('content-type')).toMatch(/application\/json/);
+  });
+
+  test('path-level mirrors exist', async () => {
+    const card = await fetch(`${base}/mcp/.well-known/agent-card.json`);
+    const x402 = await fetch(`${base}/mcp/.well-known/x402`);
+    expect(card.status).toBe(200);
+    expect(x402.status).toBe(200);
+  });
+});
