@@ -39,6 +39,17 @@ Public ownership claim for [VerifyMCP](https://verifymcp.io/docs/build/owners-js
 
 Body is `owners.json` at repo root (`owners` = VerifyMCP account emails). `Cache-Control: public, max-age=3600`.
 
+## A2A Agent Card + x402 discovery (free)
+
+Same ungated pattern (`Content-Type: application/json`, `Cache-Control: public, max-age=3600`, `Access-Control-Allow-Origin: *`). GET and HEAD.
+
+| Path | Body |
+|------|------|
+| `GET/HEAD /.well-known/agent-card.json` | A2A Agent Card (`agent-card.json`) — also served at `/.well-known/agent.json` and `/mcp/.well-known/agent-card.json` |
+| `GET/HEAD /.well-known/x402` | x402 capability manifest (`x402.json`, `kind: resource-server`) — also at `/mcp/.well-known/x402` |
+
+The Agent Card advertises the **MCP Streamable HTTP** interface only (not A2A JSON-RPC task methods). Skill ids match MCP tools: `grade_address`, `scan_token`, `batch_grade`. The x402 manifest lists POST `/mcp` with the same Base mainnet USDC `payTo` / amount as the live 402 response.
+
 ## Env
 
 | Var | Required | Notes |
