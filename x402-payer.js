@@ -1,3 +1,4 @@
+require('dns').setDefaultResultOrder('ipv4first');
 // CYRE Guardian — x402 buyer ("guardian-payer" CDP wallet)
 // Runs once at server startup, right after create-wallet.js. Two jobs:
 //   1. Always: ensure the payer wallet exists and log its Base address (fund it with a little USDC).
@@ -57,7 +58,16 @@ module.exports = async function runGuardianPayer() {
     const { encodePaymentSignatureHeader, decodePaymentRequiredHeader, decodePaymentResponseHeader } = require('@x402/core/http');
 
     // Step 1: unpaid request → expect 402 with PAYMENT-REQUIRED header (v2) or JSON body.
-    const r1 = await fetch(target, reqInit());
+    let r1;
+    for (let attempt = 1; ; attempt++) {
+      try { r1 = await fetch(target, reqInit()); break; }
+      catch (e) {
+        const cause = (e.cause && (e.cause.code || e.cause.message)) || e.message;
+        console.error(TAG, `step 1 attempt ${attempt} failed:`, cause);
+        if (attempt >= 4) throw e;
+        await new Promise((res) => setTimeout(res, attempt * 3000));
+      }
+    }
     console.log(TAG, 'step 1 status', r1.status);
     if (r1.status !== 402) {
       console.log(TAG, 'not a 402 — nothing to pay. body:', (await r1.text()).slice(0, 200));
@@ -88,7 +98,7 @@ module.exports = async function runGuardianPayer() {
     console.log(TAG, 'body:', text.slice(0, 1200));
     if (r2.status === 200) console.log(TAG, '✅ PAID — remove X402_PAY_ONCE (+ METHOD/BODY) from env now.');
   } catch (err) {
-    console.error(TAG, 'payment failed:', err.message);
+    console.error(TAG, 'payment failed:', err.message, '| cause:', (err.cause && (err.cause.code || err.cause.errors && JSON.stringify(err.cause.errors.map(x => x.code || x.message)) || err.cause.message)) || 'none');
   }
   return evmAddress;
 };
