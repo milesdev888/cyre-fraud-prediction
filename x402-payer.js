@@ -3,6 +3,10 @@
 //   1. Always: ensure the payer wallet exists and log its Base address (fund it with a little USDC).
 //   2. Only when X402_PAY_ONCE is set to a URL: pay that endpoint's 402 ONE time and log the result.
 //      Remove X402_PAY_ONCE afterwards so restarts don't pay again.
+// NEW (Aug 30): optional X402_PAY_METHOD (GET|POST, default GET) and X402_PAY_BODY
+//   (raw JSON string) so we can pay POST endpoints like x402station's
+//   /api/v1/preflight and /api/v1/verified. Both the unpaid probe and the paid
+//   retry use the same method/body/content-type. Clear all three vars after use.
 // Uses Coinbase's official x402 client (no hand-rolled signatures). Safe no-op without CDP env.
 
 const REQUIRED = ['CDP_API_KEY_ID', 'CDP_API_KEY_SECRET', 'CDP_WALLET_SECRET'];
@@ -36,11 +40,24 @@ module.exports = async function runGuardianPayer() {
   const target = (process.env.X402_PAY_ONCE || '').trim();
   if (!target) return evmAddress;
 
+  // Optional method/body for POST endpoints (e.g. x402station).
+  const method = (process.env.X402_PAY_METHOD || 'GET').trim().toUpperCase() === 'POST' ? 'POST' : 'GET';
+  const rawBody = (process.env.X402_PAY_BODY || '').trim();
+  let body;
+  if (method === 'POST' && rawBody) {
+    try { JSON.parse(rawBody); body = rawBody; }
+    catch (e) { console.error(TAG, 'X402_PAY_BODY is not valid JSON — aborting so we do not pay with a bad body.'); return evmAddress; }
+  }
+  const baseHeaders = { accept: 'application/json' };
+  if (body) baseHeaders['content-type'] = 'application/json';
+  const reqInit = (extra) => ({ method, headers: { ...baseHeaders, ...(extra || {}) }, ...(body ? { body } : {}) });
+  console.log(TAG, 'pay-once target:', method, target, body ? `body ${body.length}B` : '(no body)');
+
   try {
     const { encodePaymentSignatureHeader, decodePaymentRequiredHeader, decodePaymentResponseHeader } = require('@x402/core/http');
 
     // Step 1: unpaid request → expect 402 with PAYMENT-REQUIRED header (v2) or JSON body.
-    const r1 = await fetch(target, { headers: { accept: 'application/json' } });
+    const r1 = await fetch(target, reqInit());
     console.log(TAG, 'step 1 status', r1.status);
     if (r1.status !== 402) {
       console.log(TAG, 'not a 402 — nothing to pay. body:', (await r1.text()).slice(0, 200));
@@ -55,10 +72,9 @@ module.exports = async function runGuardianPayer() {
     console.log(TAG, 'paying on', payload.accepted && payload.accepted.network, 'from', evmAddress,
       'extensions:', Object.keys(payload.extensions || {}).join(',') || 'none');
 
-    // Step 3: paid request.
-    const r2 = await fetch(target, {
-      headers: { accept: 'application/json', 'PAYMENT-SIGNATURE': encodePaymentSignatureHeader(payload) }
-    });
+    // Step 3: paid request (some servers read X-PAYMENT, v2 reads PAYMENT-SIGNATURE — send both).
+    const sig = encodePaymentSignatureHeader(payload);
+    const r2 = await fetch(target, reqInit({ 'PAYMENT-SIGNATURE': sig, 'X-PAYMENT': sig }));
     const text = await r2.text();
     console.log(TAG, 'step 3 status', r2.status);
     const pr = r2.headers.get('payment-response') || r2.headers.get('x-payment-response');
@@ -69,8 +85,8 @@ module.exports = async function runGuardianPayer() {
     }
     const ext = r2.headers.get('extension-responses');
     if (ext) console.log(TAG, 'EXTENSION-RESPONSES:', JSON.stringify(decodeB64Json(ext)));
-    console.log(TAG, 'body:', text.slice(0, 400));
-    if (r2.status === 200) console.log(TAG, '✅ PAID — remove X402_PAY_ONCE from env now.');
+    console.log(TAG, 'body:', text.slice(0, 1200));
+    if (r2.status === 200) console.log(TAG, '✅ PAID — remove X402_PAY_ONCE (+ METHOD/BODY) from env now.');
   } catch (err) {
     console.error(TAG, 'payment failed:', err.message);
   }
