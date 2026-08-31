@@ -72,6 +72,8 @@ const MCP_DISCOVERY = {
 };
 
 function mountGuardianMcp(app) {
+  require('../lib/discovery').mountDiscoveryRoutes(app);
+
   const mcpGate = createX402Gate({
     price: String(process.env.X402_PRICE_MCP || '5000'),
     resourcePath: '/mcp',
