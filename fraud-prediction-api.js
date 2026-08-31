@@ -9,10 +9,23 @@ require('./create-wallet')().catch(() => {});
 require('./x402-payer')().catch(() => {});
 
 const app = express();
+const { createTrafficTally } = require('./lib/traffic');
 
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
+
+// Traffic tally — before MCP and API routes (see lib/traffic.js)
+let trafficReady = createTrafficTally().then((t) => {
+  app.use(t.middleware());
+  t.mountRoutes(app);
+  t.start();
+  return t;
+}).catch((e) => {
+  console.error('GUARDIAN_TRAFFIC init failed', e.message);
+  return null;
+});
+
 
 // CYRE Guardian MCP (Streamable HTTP) — see docs/mcp.md
 require('./mcp/mount').mountGuardianMcp(app);
@@ -296,9 +309,11 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Fraud Prediction API running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
+trafficReady.then(() => {
+  app.listen(PORT, () => {
+    console.log(`Fraud Prediction API running on port ${PORT}`);
+    console.log(`Health check: http://localhost:${PORT}/health`);
+  });
 });
 
 module.exports = app;
