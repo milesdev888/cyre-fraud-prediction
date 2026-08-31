@@ -12,6 +12,10 @@ const app = express();
 
 // Middleware
 app.use(cors());
+
+// B402 relay — raw JSON body before express.json() (signature covers exact bytes)
+require('./routes/b402-relay').mountB402Relay(app);
+
 app.use(express.json({ limit: '2mb' }));
 
 // CYRE Guardian MCP (Streamable HTTP) — see docs/mcp.md
