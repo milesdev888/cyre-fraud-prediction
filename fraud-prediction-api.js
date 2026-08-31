@@ -14,6 +14,9 @@ const { createTrafficTally } = require('./lib/traffic');
 // Middleware
 app.use(cors());
 
+// Root + favicon for humans / link unfurlers (free; before MCP / traffic)
+require('./lib/root-page').mountRootPage(app);
+
 // B402 relay — raw JSON body before express.json() (signature covers exact bytes)
 require('./routes/b402-relay').mountB402Relay(app);
 
