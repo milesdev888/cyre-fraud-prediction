@@ -1,6 +1,6 @@
 {
   "name": "CYRE Guardian",
-  "description": "On-chain risk intelligence for Solana via MCP. Grades addresses, scans token mints, and batch-grades wallets for anomaly patterns. Patterns, not verdicts. Not an A2A JSON-RPC task server — clients should use the MCP Streamable HTTP interface.",
+  "description": "On-chain risk intelligence for Solana via MCP. Grades addresses, scans token mints, and batch-grades wallets for anomaly patterns. Patterns, not verdicts. Not an A2A JSON-RPC task server \u2014 clients should use the MCP Streamable HTTP interface.",
   "version": "1.0.0",
   "documentationUrl": "https://cyre.dev/SKILL.md",
   "iconUrl": "https://cyre.dev/favicon.png",
@@ -30,26 +30,54 @@
       }
     ]
   },
-  "defaultInputModes": ["application/json"],
-  "defaultOutputModes": ["application/json"],
+  "defaultInputModes": [
+    "application/json"
+  ],
+  "defaultOutputModes": [
+    "application/json"
+  ],
   "skills": [
     {
       "id": "grade_address",
       "name": "grade_address",
       "description": "Risk grade a Solana address from on-chain history (patterns with points and reasons). Patterns, not verdicts.",
-      "tags": ["solana", "risk", "fraud", "address", "mcp"]
+      "tags": [
+        "solana",
+        "risk",
+        "fraud",
+        "address",
+        "mcp"
+      ]
     },
     {
       "id": "scan_token",
       "name": "scan_token",
       "description": "Scan a Solana token mint for mint/freeze authority status, supply, and holder concentration. Patterns, not verdicts.",
-      "tags": ["solana", "token", "mint", "risk", "mcp"]
+      "tags": [
+        "solana",
+        "token",
+        "mint",
+        "risk",
+        "mcp"
+      ]
     },
     {
       "id": "batch_grade",
       "name": "batch_grade",
       "description": "Grade up to 25 Solana addresses in one call. Patterns, not verdicts.",
-      "tags": ["solana", "risk", "batch", "mcp"]
+      "tags": [
+        "solana",
+        "risk",
+        "batch",
+        "mcp"
+      ]
+    }
+  ],
+  "peers": [
+    {
+      "network": "xrpl",
+      "name": "cloudpayX",
+      "agentCard": "https://api.cloudpayxagent.xyz/.well-known/agent-card.json"
     }
   ]
 }
