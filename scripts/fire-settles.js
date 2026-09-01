@@ -1,7 +1,9 @@
-// scripts/fire-settles.js — one-shot mainnet settles for new Guardian bazaar routes.
+// scripts/fire-settles.js — one-shot mainnet settles for Guardian bazaar + Agent Trinity routes.
 // Called from x402-payer when X402_FIRE_SETTLES=1. Reuses CdpX402Client + @x402/core/http.
 // Remove the env flag after a successful run so restarts do not re-pay.
 // Optional: X402_FIRE_ROUTES=/api/bazaar,/api/caution,... — fire only those paths (listed order).
+// Trinity-only (7 routes, no re-pay of the earlier catalog):
+//   X402_FIRE_ROUTES=/api/circuit/seal,/api/circuit/heartbeat,/api/circuit/check,/api/exchange/post,/api/exchange/match,/api/stream/subscribe,/api/stream/events
 
 const TAG = '[fire-settles]';
 const BASE = (process.env.X402_FIRE_BASE || 'https://cyre.dev').replace(/\/$/, '');
@@ -68,7 +70,10 @@ module.exports = async function fireSettles(client) {
     intentToken: null,
     cronToken: null,
     passportToken: null,
-    lockboxToken: null
+    lockboxToken: null,
+    circuitToken: null,
+    exchangeIntentToken: null,
+    streamToken: null
   };
 
   // Full catalog — tokens chain into later routes. Filter via X402_FIRE_ROUTES when set.
@@ -295,6 +300,99 @@ module.exports = async function fireSettles(client) {
           amountAtomic: '10000',
           resourceUrl: 'https://cyre.dev',
           network: 'eip155:8453'
+        })
+    },
+    // Agent Trinity — Circuit → Exchange → Stream. Params from -Cyre-Guardian handlers
+    // (pickInput + required-field errors) and SKILL.md examples. Gate 400s unpaid invalids.
+    {
+      route: '/api/circuit/seal',
+      url: () =>
+        BASE +
+        '/api/circuit/seal?' +
+        qs({
+          actor: SOL,
+          heartbeatIntervalSeconds: '300',
+          maxMissedBeats: '2',
+          maxSpendAtomic: '100000',
+          allowHosts: 'cyre.dev'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.circuitToken = j.token;
+      }
+    },
+    {
+      route: '/api/circuit/heartbeat',
+      url: () =>
+        BASE +
+        '/api/circuit/heartbeat?' +
+        qs({
+          token: ctx.circuitToken || 'missing'
+        })
+    },
+    {
+      route: '/api/circuit/check',
+      url: () =>
+        BASE +
+        '/api/circuit/check?' +
+        qs({
+          token: ctx.circuitToken || 'missing',
+          amountAtomic: '5000',
+          resourceUrl: 'https://cyre.dev/api/address',
+          network: 'eip155:8453',
+          payTo: TREASURY
+        })
+    },
+    {
+      route: '/api/exchange/post',
+      url: () =>
+        BASE +
+        '/api/exchange/post?' +
+        qs({
+          actor: SOL,
+          need: 'token scan + holders',
+          budgetAtomic: '20000',
+          network: 'eip155:8453',
+          tags: 'scan,token'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.exchangeIntentToken = j.token;
+      }
+    },
+    {
+      route: '/api/exchange/match',
+      url: () =>
+        BASE +
+        '/api/exchange/match?' +
+        qs({
+          intentToken: ctx.exchangeIntentToken || 'missing',
+          resourceUrl: 'https://cyre.dev/api/token',
+          payTo: TREASURY,
+          amountAtomic: '10000',
+          network: 'eip155:8453'
+        })
+    },
+    {
+      route: '/api/stream/subscribe',
+      url: () =>
+        BASE +
+        '/api/stream/subscribe?' +
+        qs({
+          actor: SOL,
+          list: SOL,
+          minRisk: 'HIGH'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.streamToken = j.token;
+      }
+    },
+    {
+      route: '/api/stream/events',
+      url: () =>
+        BASE +
+        '/api/stream/events?' +
+        qs({
+          token: ctx.streamToken || 'missing',
+          waitSeconds: '1'
         })
     }
   ];

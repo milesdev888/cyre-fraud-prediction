@@ -8,7 +8,8 @@ require('dns').setDefaultResultOrder('ipv4first');
 //   (raw JSON string) so we can pay POST endpoints like x402station's
 //   /api/v1/preflight and /api/v1/verified. Both the unpaid probe and the paid
 //   retry use the same method/body/content-type. Clear all three vars after use.
-// NEW: X402_FIRE_SETTLES=1 runs scripts/fire-settles.js once (13 bazaar routes).
+// NEW: X402_FIRE_SETTLES=1 runs scripts/fire-settles.js once (catalog + Agent Trinity).
+// Optional X402_FIRE_ROUTES=/api/circuit/seal,... fires a subset in listed order.
 // Uses Coinbase's official x402 client (no hand-rolled signatures). Safe no-op without CDP env.
 
 const REQUIRED = ['CDP_API_KEY_ID', 'CDP_API_KEY_SECRET', 'CDP_WALLET_SECRET'];
