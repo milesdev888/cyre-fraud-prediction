@@ -102,6 +102,22 @@ Expect **HTTP 402** with JSON body `x402Version: 2`, Base accept `eip155:8453`, 
 
 Clients that speak x402 must attach `PAYMENT-SIGNATURE` after the 402 challenge (or use an x402-aware MCP proxy). Until then, point internal agents at `/mcp` only after paying, or call Guardian HTTP APIs directly with `x-guardian-key`.
 
+## Project Cursor MCP (Meteora docs)
+
+This repo also ships a **client-side** Cursor MCP in `.cursor/mcp.json` so editors and Cloud Agents can search [Meteora documentation](https://docs.meteora.ag/agents/mcp) without web-search noise. It is **not** this service’s `/mcp` endpoint and does not go through x402.
+
+```json
+{
+  "mcpServers": {
+    "meteora-docs": {
+      "url": "https://docs.meteora.ag/mcp"
+    }
+  }
+}
+```
+
+The hosted server is read-only (search + page retrieval). Reload Cursor after pulling so the server appears under Settings → Tools & MCP.
+
 ## Local test
 
 ```bash
