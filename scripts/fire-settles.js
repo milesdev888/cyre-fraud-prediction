@@ -1,4 +1,4 @@
-// scripts/fire-settles.js — one-shot mainnet settles for new Guardian bazaar routes.
+// scripts/fire-settles.js — one-shot mainnet settles for Guardian bazaar + Agent Trinity routes.
 // Called from x402-payer when X402_FIRE_SETTLES=1. Reuses CdpX402Client + @x402/core/http.
 // Remove the env flag after a successful run so restarts do not re-pay.
 // Optional: X402_FIRE_ROUTES=/api/bazaar,/api/caution,... — fire only those paths (listed order).
@@ -17,6 +17,10 @@ const SAMPLE_OFFER = JSON.stringify({
   x402Version: 2,
   accepts: [{ network: 'eip155:8453', amount: '2000', payTo: TREASURY }]
 });
+
+/** Agentic Market index gaps + Trinity — use X402_FIRE_CATALOG=missing on Render once. */
+const MISSING_CATALOG =
+  '/api/address,/api/token,/api/handshake,/api/lookalike,/api/mintalike,/api/policy,/api/intent,/api/pack,/api/stream/subscribe,/api/stream/events,/api/exchange/post,/api/exchange/match,/api/circuit/seal,/api/circuit/heartbeat,/api/circuit/check';
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -68,11 +72,100 @@ module.exports = async function fireSettles(client) {
     intentToken: null,
     cronToken: null,
     passportToken: null,
-    lockboxToken: null
+    receiptToken: null,
+    lockboxToken: null,
+    streamToken: null,
+    exchangeIntentToken: null,
+    circuitToken: null
   };
 
   // Full catalog — tokens chain into later routes. Filter via X402_FIRE_ROUTES when set.
   const routes = [
+    // Core SKUs — close Agentic Market index gaps (address/token/handshake were missing)
+    {
+      route: '/api/gate',
+      url: () =>
+        BASE +
+        '/api/gate?' +
+        qs({
+          payTo: TREASURY,
+          amount: '10000',
+          resourceUrl: 'https://cyre.dev/api/address',
+          chain: 'base'
+        })
+    },
+    {
+      route: '/api/address',
+      url: () => BASE + '/api/address?' + qs({ address: SOL })
+    },
+    {
+      route: '/api/token',
+      url: () => BASE + '/api/token?' + qs({ mint: USDC_MINT })
+    },
+    {
+      route: '/api/passport',
+      url: () => BASE + '/api/passport?' + qs({ address: SOL }),
+      keep: (j) => {
+        if (j && j.token) ctx.passportToken = j.token;
+      }
+    },
+    {
+      route: '/api/handshake',
+      url: () => BASE + '/api/handshake?' + qs({ addressA: SOL, addressB: SOL2 })
+    },
+    {
+      route: '/api/delta',
+      url: () => BASE + '/api/delta?' + qs({ token: ctx.passportToken || 'missing' })
+    },
+    {
+      route: '/api/receipt',
+      url: () =>
+        BASE +
+        '/api/receipt?' +
+        qs({
+          actor: SOL,
+          intentHash: INTENT_HASH,
+          action: 'transfer',
+          score: '24',
+          riskLevel: 'LOW'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.receiptToken = j.token;
+      }
+    },
+    {
+      route: '/api/batch',
+      url: () => BASE + '/api/batch?' + qs({ from: SOL, list: SOL2 })
+    },
+    {
+      route: '/api/program',
+      url: () =>
+        BASE +
+        '/api/program?' +
+        qs({
+          programId: 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
+          address: SOL
+        })
+    },
+    {
+      route: '/api/preflight',
+      url: () =>
+        BASE +
+        '/api/preflight?' +
+        qs({
+          from: SOL,
+          to: SOL2,
+          mint: USDC_MINT
+        })
+    },
+    {
+      route: '/api/alerts',
+      url: () => BASE + '/api/alerts?' + qs({ list: SOL, minRisk: 'HIGH' })
+    },
+    {
+      route: '/api/oracle',
+      url: () => BASE + '/api/oracle'
+    },
     {
       route: '/api/policy',
       url: () =>
@@ -296,8 +389,112 @@ module.exports = async function fireSettles(client) {
           resourceUrl: 'https://cyre.dev',
           network: 'eip155:8453'
         })
+    },
+    // Agent Trinity suite (Pulse Stream + Intent Exchange + Circuit Breaker)
+    {
+      route: '/api/stream/subscribe',
+      url: () =>
+        BASE +
+        '/api/stream/subscribe?' +
+        qs({
+          actor: SOL,
+          list: SOL,
+          minRisk: 'HIGH'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.streamToken = j.token;
+      }
+    },
+    {
+      route: '/api/stream/events',
+      url: () =>
+        BASE +
+        '/api/stream/events?' +
+        qs({
+          token: ctx.streamToken || 'missing',
+          waitSeconds: '0'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.streamToken = j.token;
+      }
+    },
+    {
+      route: '/api/exchange/post',
+      url: () =>
+        BASE +
+        '/api/exchange/post?' +
+        qs({
+          actor: SOL,
+          need: 'token scan + holder breakdown',
+          budgetAtomic: '20000',
+          network: 'eip155:8453',
+          tags: 'scan,token'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.exchangeIntentToken = j.token;
+      }
+    },
+    {
+      route: '/api/exchange/match',
+      url: () =>
+        BASE +
+        '/api/exchange/match?' +
+        qs({
+          intentToken: ctx.exchangeIntentToken || 'missing',
+          resourceUrl: 'https://cyre.dev/api/token',
+          payTo: TREASURY,
+          amountAtomic: '10000',
+          network: 'eip155:8453'
+        })
+    },
+    {
+      route: '/api/circuit/seal',
+      url: () =>
+        BASE +
+        '/api/circuit/seal?' +
+        qs({
+          actor: SOL,
+          heartbeatIntervalSeconds: '300',
+          maxMissedBeats: '2',
+          maxSpendAtomic: '100000',
+          allowHosts: 'cyre.dev',
+          policyToken: ctx.policyToken || undefined
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.circuitToken = j.token;
+      }
+    },
+    {
+      route: '/api/circuit/heartbeat',
+      url: () =>
+        BASE +
+        '/api/circuit/heartbeat?' +
+        qs({
+          token: ctx.circuitToken || 'missing'
+        }),
+      keep: (j) => {
+        if (j && j.token) ctx.circuitToken = j.token;
+      }
+    },
+    {
+      route: '/api/circuit/check',
+      url: () =>
+        BASE +
+        '/api/circuit/check?' +
+        qs({
+          token: ctx.circuitToken || 'missing',
+          amountAtomic: '5000',
+          resourceUrl: 'https://cyre.dev/api/gate',
+          network: 'eip155:8453'
+        })
     }
   ];
+
+  const catalogMode = String(process.env.X402_FIRE_CATALOG || '').trim().toLowerCase();
+  if (catalogMode === 'missing' && !String(process.env.X402_FIRE_ROUTES || '').trim()) {
+    process.env.X402_FIRE_ROUTES = MISSING_CATALOG;
+    console.log(TAG, 'X402_FIRE_CATALOG=missing →', MISSING_CATALOG);
+  }
 
   const selectedRaw = String(process.env.X402_FIRE_ROUTES || '').trim();
   let toRun = routes;
