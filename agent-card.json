@@ -79,5 +79,13 @@
       "name": "cloudpayX",
       "agentCard": "https://api.cloudpayxagent.xyz/.well-known/agent-card.json"
     }
+  ],
+  "external_network_referrals": [
+    {
+      "network": "xrpl:0",
+      "name": "cloudpayX",
+      "relationship": "external_specialist",
+      "agent_card_url": "https://api.cloudpayxagent.xyz/.well-known/agent-card.json"
+    }
   ]
 }

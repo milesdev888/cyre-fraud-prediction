@@ -39,6 +39,12 @@ Public ownership claim for [VerifyMCP](https://verifymcp.io/docs/build/owners-js
 
 Body is `owners.json` at repo root (`owners` = VerifyMCP account emails). `Cache-Control: public, max-age=3600`.
 
+## Host root (free)
+
+`GET/HEAD /` — browsers / link unfurlers (`Accept: text/html` or Twitterbot etc.) get a minimal HTML page with OpenGraph tags. Agents / curl get a JSON index (`mcp`, `health`, `openapi`, `x402`, `agentCard`, `skill`, `site`). `Cache-Control: public, max-age=300`. No auth, no x402.
+
+`GET/HEAD /favicon.ico` — tiny inline SVG (`max-age=86400`).
+
 ## A2A Agent Card + x402 discovery (free)
 
 Same ungated pattern (`Content-Type: application/json`, `Cache-Control: public, max-age=3600`, `Access-Control-Allow-Origin: *`). GET and HEAD.
