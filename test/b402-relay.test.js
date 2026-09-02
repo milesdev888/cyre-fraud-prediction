@@ -69,6 +69,34 @@ function postRaw(base, path, body, headers = {}) {
   });
 }
 
+function getRaw(base, path, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(path, base);
+    const req = http.request(
+      {
+        hostname: url.hostname,
+        port: url.port,
+        path: url.pathname,
+        method: 'GET',
+        headers: { ...headers }
+      },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => {
+          resolve({
+            status: res.statusCode,
+            headers: res.headers,
+            body: Buffer.concat(chunks)
+          });
+        });
+      }
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 describe('b402-relay', () => {
   const saved = { ...process.env };
 
@@ -103,6 +131,28 @@ describe('b402-relay', () => {
       const r = await postRaw(srv.base, '/internal/b402/supported', '{}');
       expect(r.status).toBe(401);
       expect(r.body.length).toBe(0);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  test('GET /health 401 without key; 200 with configured flags', async () => {
+    process.env.GUARDIAN_KEY = 'gk-test';
+    delete process.env.B402_BASE_URL;
+    delete process.env.B402_CLIENT_ID;
+    delete process.env.B402_ACCESS_TOKEN;
+    delete process.env.B402_RSA_PRIVATE_KEY;
+    const app = express();
+    mountB402Relay(app);
+    const srv = await listenApp(app);
+    try {
+      const denied = await getRaw(srv.base, '/internal/b402/health');
+      expect(denied.status).toBe(401);
+      const ok = await getRaw(srv.base, '/internal/b402/health', { 'x-guardian-key': 'gk-test' });
+      expect(ok.status).toBe(200);
+      const body = JSON.parse(ok.body.toString());
+      expect(body).toEqual({ configured: false, baseUrlSet: false, hasKey: false });
+      expect(ok.headers['x-b402-relay']).toBe('1');
     } finally {
       await srv.close();
     }

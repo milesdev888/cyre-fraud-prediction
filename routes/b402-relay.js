@@ -1,6 +1,6 @@
 // routes/b402-relay.js — Binance B402 facilitator relay (Render static egress → Binance IP whitelist)
 // Vercel BSC lane calls POST /internal/b402/{supported|verify|settle} with x-guardian-key.
-// See docs/B402-ENV.md · docs/B402-RESEARCH.md (Guardian repo PR #111).
+// See docs/B402-RELAY.md · docs/B402-ENV.md · Guardian docs/B402-RESEARCH.md.
 
 const crypto = require('crypto');
 const express = require('express');
@@ -114,7 +114,27 @@ async function forwardToBinance(op, bodyBuf) {
   }
 }
 
+function healthPayload() {
+  const baseUrl = String(process.env.B402_BASE_URL || '').replace(/\/$/, '');
+  const keyRaw = process.env.B402_RSA_PRIVATE_KEY || '';
+  const cfg = readB402Config();
+  return {
+    configured: Boolean(cfg.ok),
+    baseUrlSet: Boolean(baseUrl),
+    hasKey: Boolean(String(keyRaw).trim())
+  };
+}
+
 function mountB402Relay(app) {
+  app.get('/internal/b402/health', (req, res) => {
+    if (!guardianKeyOk(req)) {
+      res.status(401).end();
+      return;
+    }
+    res.setHeader('x-b402-relay', '1');
+    res.json(healthPayload());
+  });
+
   app.post(
     '/internal/b402/:op',
     express.raw({ type: 'application/json', limit: MAX_BODY }),
@@ -151,5 +171,6 @@ module.exports = {
   verifyRequestSignature,
   signaturePayload,
   forwardToBinance,
-  guardianKeyOk
+  guardianKeyOk,
+  healthPayload
 };
