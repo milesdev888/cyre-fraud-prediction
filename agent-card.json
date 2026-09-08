@@ -3,7 +3,7 @@
   "description": "On-chain risk intelligence for Solana via MCP. Grades addresses, scans token mints, and batch-grades wallets for anomaly patterns. Patterns, not verdicts. Not an A2A JSON-RPC task server \u2014 clients should use the MCP Streamable HTTP interface.",
   "version": "1.0.0",
   "documentationUrl": "https://cyre.dev/SKILL.md",
-  "iconUrl": "https://cyre.dev/favicon.png",
+  "iconUrl": "https://cyre.dev/c7-cobra-256.png",
   "provider": {
     "organization": "CYRE",
     "url": "https://cyre.dev"
